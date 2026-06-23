@@ -7,6 +7,8 @@ description: Build, run, and modify machin-game-simon — Simon Says as a native
 
 Simon Says as a native raylib desktop window with sound, written in [machin](https://github.com/javimosch/machin) (MFL). It is the reference example for **audio** and **opaque FFI handles** in machin (the sibling sprite/terminal games are [machin-game-flappy](https://github.com/javimosch/machin-game-flappy) and [machin-game-snake](https://github.com/javimosch/machin-game-snake)).
 
+> The shared game-dev setup, build-and-verify workflow, and the cross-cutting caveats/gotchas live in the canonical **[machin-gamedev skill](https://github.com/javimosch/machin/blob/main/skills/machin-gamedev/SKILL.md)**. This file is Simon's specifics.
+
 ## Build & run
 
 ```bash
