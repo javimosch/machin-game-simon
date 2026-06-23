@@ -1,0 +1,219 @@
+// machin-game-simon — Simon Says as a real native desktop app, written in machin
+// (MFL) and drawn with raylib through machin's C FFI. The machine flashes a
+// growing sequence of colored pads (each with its own tone); you repeat it back
+// by clicking. Miss one and it buzzes. How long a sequence can you hold?
+//
+//   ./build.sh && ./machin-game-simon
+//
+// This is the *audio* dogfood for machin's FFI. raylib's Sound is a by-value
+// struct that contains pointers, so it can't be a numeric cstruct — it needs an
+// OPAQUE HANDLE: `cstruct Sound {}` (machin v0.44.0). machin holds the real C
+// struct by value and passes it back to PlaySound without naming its fields.
+
+extern "raylib" {
+    header "raylib.h"
+    link "raylib" link "GL" link "m" link "pthread" link "dl" link "rt" link "X11"
+    cstruct Color { r u8 g u8 b u8 a u8 }
+    cstruct Sound {}                                  // opaque handle (pointers inside)
+    fn InitWindow(i32, i32, string)
+    fn SetTargetFPS(i32)
+    fn WindowShouldClose() bool
+    fn BeginDrawing()
+    fn EndDrawing()
+    fn ClearBackground(Color)
+    fn DrawRectangle(i32, i32, i32, i32, Color)
+    fn DrawCircle(i32, i32, f32, Color)
+    fn DrawText(string, i32, i32, i32, Color)
+    fn MeasureText(string, i32) i32
+    fn IsMouseButtonPressed(i32) bool
+    fn GetMouseX() i32
+    fn GetMouseY() i32
+    fn IsKeyPressed(i32) bool
+    fn InitAudioDevice()
+    fn LoadSound(string) Sound
+    fn PlaySound(Sound)
+    fn CloseAudioDevice()
+    fn CloseWindow()
+}
+
+// ---- constants ----
+
+func WIN() (n) { n = 500 }
+func PAD() (n) { n = 200 }
+func LIGHT() (n) { n = 28 }   // frames a pad stays lit during playback
+func GAP() (n) { n = 12 }     // dark frames between playback steps
+
+func col(r, g, b) (c) { c = Color{r, g, b, 255} }
+func col_a(r, g, b, a) (c) { c = Color{r, g, b, a} }
+
+// pad 0 top-left, 1 top-right, 2 bottom-left, 3 bottom-right
+func pad_x(i) (x) { x = 30  if i == 1 { x = 270 }  if i == 3 { x = 270 } }
+func pad_y(i) (y) { y = 30  if i == 2 { y = 270 }  if i == 3 { y = 270 } }
+
+func pad_color(i, lit) (c) {
+    if i == 0 { c = col(34, 110, 34)   if lit { c = col(90, 245, 90) } }
+    if i == 1 { c = col(120, 34, 34)   if lit { c = col(245, 90, 90) } }
+    if i == 2 { c = col(128, 116, 24)  if lit { c = col(245, 230, 70) } }
+    if i == 3 { c = col(30, 60, 130)   if lit { c = col(90, 150, 245) } }
+}
+
+// which pad contains (mx, my), or -1
+func pad_at(mx, my) (p) {
+    p = -1
+    i := 0
+    while i < 4 {
+        if mx >= pad_x(i) {
+            if mx < pad_x(i) + PAD() {
+                if my >= pad_y(i) {
+                    if my < pad_y(i) + PAD() { p = i }
+                }
+            }
+        }
+        i = i + 1
+    }
+}
+
+func rnd_pad() (p) { p = byte_at(rand_bytes(1), 0) % 4 }
+
+// ---- rendering ----
+
+func draw(seq, score, mode, lit) {
+    ClearBackground(col(24, 24, 30))
+    i := 0
+    while i < 4 {
+        on := lit == i
+        DrawRectangle(pad_x(i), pad_y(i), PAD(), PAD(), pad_color(i, on))
+        i = i + 1
+    }
+    // center hub with the round number
+    DrawCircle(250, 250, 78.0, col(24, 24, 30))
+    DrawCircle(250, 250, 70.0, col(40, 40, 50))
+    s := str(score)
+    sw := MeasureText(s, 48)
+    DrawText(s, 250 - sw / 2, 226, 48, col(235, 235, 240))
+
+    if mode == 0 {
+        t := "watch"
+        tw := MeasureText(t, 20)
+        DrawText(t, 250 - tw / 2, 286, 20, col(150, 150, 160))
+    }
+    if mode == 1 {
+        t := "repeat"
+        tw := MeasureText(t, 20)
+        DrawText(t, 250 - tw / 2, 286, 20, col(150, 150, 160))
+    }
+    if mode == 2 {
+        DrawRectangle(0, 0, WIN(), WIN(), col_a(0, 0, 0, 150))
+        o := "Game Over"
+        ow := MeasureText(o, 46)
+        DrawText(o, (WIN() - ow) / 2, 200, 46, col(240, 240, 245))
+        sc := "you reached " + str(score)
+        cw := MeasureText(sc, 26)
+        DrawText(sc, (WIN() - cw) / 2, 262, 26, col(220, 220, 225))
+        h := "press R to play again"
+        hw := MeasureText(h, 22)
+        DrawText(h, (WIN() - hw) / 2, 304, 22, col(180, 180, 190))
+    }
+}
+
+// ---- main ----
+
+func main() {
+    InitWindow(WIN(), WIN(), "machin - simon")
+    SetTargetFPS(60)
+    InitAudioDevice()
+
+    sounds := []Sound{}
+    sounds = append(sounds, LoadSound("assets/pad0.wav"))
+    sounds = append(sounds, LoadSound("assets/pad1.wav"))
+    sounds = append(sounds, LoadSound("assets/pad2.wav"))
+    sounds = append(sounds, LoadSound("assets/pad3.wav"))
+    sounds = append(sounds, LoadSound("assets/buzz.wav"))
+
+    seq := []int{}
+    seq = append(seq, rnd_pad())
+    score := 0
+    mode := 0          // 0 show, 1 input, 2 over
+    show_i := 0
+    show_t := 0
+    in_i := 0
+    lit := 0 - 1
+    lit_t := 0
+    start_t := 0       // small pause before the first pad of a playback
+
+    while WindowShouldClose() == false {
+        if mode == 0 {
+            // brief lead-in so the first flash is noticeable
+            if start_t < 30 {
+                start_t = start_t + 1
+            } else {
+                if show_t == 0 {
+                    lit = seq[show_i]
+                    PlaySound(sounds[lit])
+                }
+                show_t = show_t + 1
+                if show_t == LIGHT() { lit = 0 - 1 }
+                if show_t >= LIGHT() + GAP() {
+                    show_t = 0
+                    show_i = show_i + 1
+                    if show_i >= len(seq) {
+                        mode = 1
+                        in_i = 0
+                        lit = 0 - 1
+                    }
+                }
+            }
+        }
+        if mode == 1 {
+            if lit_t > 0 {
+                lit_t = lit_t - 1
+                if lit_t == 0 { lit = 0 - 1 }
+            }
+            p := 0 - 1
+            if IsMouseButtonPressed(0) { p = pad_at(GetMouseX(), GetMouseY()) }
+            if IsKeyPressed(49) { p = 0 }
+            if IsKeyPressed(50) { p = 1 }
+            if IsKeyPressed(51) { p = 2 }
+            if IsKeyPressed(52) { p = 3 }
+            if p >= 0 {
+                lit = p
+                lit_t = 14
+                PlaySound(sounds[p])
+                if p == seq[in_i] {
+                    in_i = in_i + 1
+                    if in_i >= len(seq) {
+                        seq = append(seq, rnd_pad())
+                        score = score + 1
+                        mode = 0
+                        show_i = 0
+                        show_t = 0
+                        start_t = 0
+                    }
+                } else {
+                    mode = 2
+                    PlaySound(sounds[4])
+                }
+            }
+        }
+        if mode == 2 {
+            if IsKeyPressed(82) {
+                seq = []int{}
+                seq = append(seq, rnd_pad())
+                score = 0
+                mode = 0
+                show_i = 0
+                show_t = 0
+                in_i = 0
+                lit = 0 - 1
+                start_t = 0
+            }
+        }
+
+        BeginDrawing()
+        draw(seq, score, mode, lit)
+        EndDrawing()
+    }
+
+    CloseAudioDevice()
+    CloseWindow()
+}
