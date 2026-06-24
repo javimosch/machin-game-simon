@@ -1,4 +1,4 @@
-# machin-game-simon
+# machin-game-demo-simon
 
 **Simon Says** as a real **native desktop app** — written in **[machin](https://github.com/javimosch/machin)** (MFL) and drawn with [raylib](https://www.raylib.com/) through machin's C FFI. The machine flashes a growing sequence of colored pads, each with its own **tone**; you repeat it back by clicking. Miss one and it buzzes. How long a sequence can you hold?
 
@@ -17,7 +17,7 @@ Part of [**awesome-machin**](https://github.com/javimosch/awesome-machin) — th
 
 ## Why it exists
 
-The machin north star is "build real things, let usage drive features." This is the **audio** dogfood — the third game in the set, after the terminal [machin-game-snake](https://github.com/javimosch/machin-game-snake) and the sprite-driven [machin-game-flappy](https://github.com/javimosch/machin-game-flappy). Simon is the game where **sound *is* the mechanic**, so it can't fake the requirement.
+The machin north star is "build real things, let usage drive features." This is the **audio** dogfood — the third game in the set, after the terminal [machin-game-demo-snake](https://github.com/javimosch/machin-game-demo-snake) and the sprite-driven [machin-game-demo-flappy](https://github.com/javimosch/machin-game-demo-flappy). Simon is the game where **sound *is* the mechanic**, so it can't fake the requirement.
 
 And the requirement drove a real language feature. raylib's `Sound` is a by-value struct that **contains pointers**, so it can't be a numeric `cstruct` — it needs an **opaque handle**, which became **machin v0.44.0**:
 
@@ -34,8 +34,8 @@ machin loads five `Sound`s into a `[]Sound`, indexes them by pad, and plays them
 Needs the `machin` compiler (**v0.44.0+**), a C compiler, **raylib**, a display, and an audio device.
 
 ```bash
-./build.sh            # → ./machin-game-simon
-./machin-game-simon   # run from the repo root so it finds assets/
+./build.sh            # → ./machin-game-demo-simon
+./machin-game-demo-simon   # run from the repo root so it finds assets/
 ```
 
 `build.sh` uses a **system raylib** if installed (`sudo apt-get install libraylib-dev`, `brew install raylib`, …); otherwise it **vendors raylib's prebuilt static release** into `vendor/` automatically — no root required.

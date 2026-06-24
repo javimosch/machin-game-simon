@@ -1,19 +1,19 @@
 ---
-name: machin-game-simon
-description: Build, run, and modify machin-game-simon — Simon Says as a native raylib desktop game with sound, written in machin (MFL). Use when working on this repo, or as a worked example of audio / opaque FFI handles (cstruct Sound {}) and a frame-timed state machine in machin.
+name: machin-game-demo-simon
+description: Build, run, and modify machin-game-demo-simon — Simon Says as a native raylib desktop game with sound, written in machin (MFL). Use when working on this repo, or as a worked example of audio / opaque FFI handles (cstruct Sound {}) and a frame-timed state machine in machin.
 ---
 
-# machin-game-simon
+# machin-game-demo-simon
 
-Simon Says as a native raylib desktop window with sound, written in [machin](https://github.com/javimosch/machin) (MFL). It is the reference example for **audio** and **opaque FFI handles** in machin (the sibling sprite/terminal games are [machin-game-flappy](https://github.com/javimosch/machin-game-flappy) and [machin-game-snake](https://github.com/javimosch/machin-game-snake)).
+Simon Says as a native raylib desktop window with sound, written in [machin](https://github.com/javimosch/machin) (MFL). It is the reference example for **audio** and **opaque FFI handles** in machin (the sibling sprite/terminal games are [machin-game-demo-flappy](https://github.com/javimosch/machin-game-demo-flappy) and [machin-game-demo-snake](https://github.com/javimosch/machin-game-demo-snake)).
 
 > The shared game-dev setup, build-and-verify workflow, and the cross-cutting caveats/gotchas live in the canonical **[machin-gamedev skill](https://github.com/javimosch/machin/blob/main/skills/machin-gamedev/SKILL.md)**. This file is Simon's specifics.
 
 ## Build & run
 
 ```bash
-./build.sh                 # machin encode simon.src -> simon.mfl, then machin build -> ./machin-game-simon
-./machin-game-simon        # run from the repo root so assets/ resolves
+./build.sh                 # machin encode simon.src -> simon.mfl, then machin build -> ./machin-game-demo-simon
+./machin-game-demo-simon        # run from the repo root so assets/ resolves
 ```
 
 Needs `machin` **v0.44.0+** (uses `cstruct Sound {}`), a C compiler, **raylib**, a display, and an audio device.
